@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Building a Scalable, Resilient DeepStream Pipeline</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+  :root{
+    --bg:#13140f;
+    --bg-2:#191a13;
+    --panel:#0c0d08;
+    --line:#2b2c22;
+    --line-soft:#23241b;
+    --txt:#e9e7dc;
+    --txt-2:#a6a497;
+    --txt-3:#74736a;
+    --green:#86c232;       /* nvidia-ish */
+    --green-dim:#5d8a23;
+    --amber:#e0a458;
+    --red:#e07a5f;
+    --blue:#7fb0d4;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --serif:"Iowan Old Style","Charter","Cambria",Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--txt);
+    font-family:var(--serif);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(circle at 12% -10%, rgba(134,194,50,.06), transparent 40%),
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size:auto, 46px 46px, 46px 46px;
+    background-position:0 0, -1px -1px, -1px -1px;
+  }
+  a{color:var(--green);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .wrap{display:grid;grid-template-columns:262px minmax(0,1fr);max-width:1280px;margin:0 auto;}
+
+  /* sidebar */
+  aside{
+    position:sticky;top:0;height:100vh;overflow-y:auto;
+    border-right:1px solid var(--line);padding:30px 22px 60px;
+    background:linear-gradient(180deg, rgba(25,26,19,.6), transparent 220px);
+  }
+  .brand{font-family:var(--mono);font-size:12.5px;letter-spacing:.04em;color:var(--txt-3);margin-bottom:4px}
+  .brand b{color:var(--green)}
+  .brand-title{font-family:var(--mono);font-size:16px;color:var(--txt);line-height:1.4;margin:8px 0 26px;font-weight:500}
+  nav a{
+    display:block;font-family:var(--mono);font-size:13px;color:var(--txt-2);
+    padding:5px 10px;border-left:2px solid transparent;margin-left:-2px;line-height:1.45;
+    transition:color .15s, border-color .15s, background .15s;border-radius:0 4px 4px 0;
+  }
+  nav a .n{color:var(--green-dim);margin-right:8px}
+  nav a:hover{color:var(--txt);text-decoration:none;background:var(--bg-2)}
+  nav a.active{color:var(--green);border-left-color:var(--green);background:var(--bg-2)}
+  nav a.active .n{color:var(--green)}
+
+  /* main */
+  main{padding:64px 56px 140px;min-width:0}
+  .hero{margin-bottom:64px;opacity:0;animation:rise .7s .05s forwards}
+  .kicker{font-family:var(--mono);font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:18px}
+  h1{font-family:var(--mono);font-weight:600;font-size:40px;line-height:1.12;letter-spacing:-.01em;margin:0 0 20px}
+  .lede{font-size:19px;color:var(--txt-2);max-width:64ch;margin:0}
+  .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:26px}
+  .tag{font-family:var(--mono);font-size:11.5px;color:var(--txt-2);border:1px solid var(--line);padding:4px 10px;border-radius:20px;background:var(--bg-2)}
+
+  section{margin-bottom:62px;scroll-margin-top:28px;opacity:0;animation:rise .6s forwards}
+  .sec-label{font-family:var(--mono);font-size:12px;color:var(--green-dim);letter-spacing:.06em;margin-bottom:10px}
+  h2{font-family:var(--mono);font-weight:600;font-size:25px;letter-spacing:-.01em;margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);color:var(--txt)}
+  h3{font-family:var(--mono);font-weight:600;font-size:17.5px;color:var(--txt);margin:34px 0 12px}
+  h3 .glyph{color:var(--green-dim);margin-right:8px}
+  p{margin:0 0 16px;max-width:72ch}
+  strong{color:#fff;font-weight:600}
+  code.in{font-family:var(--mono);font-size:.86em;background:var(--bg-2);border:1px solid var(--line-soft);padding:1.5px 6px;border-radius:5px;color:var(--green);white-space:nowrap}
+  ul,ol{max-width:72ch;padding-left:22px;margin:0 0 16px}
+  li{margin:7px 0}
+  li::marker{color:var(--green-dim)}
+
+  /* code blocks */
+  .code{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:20px 0;background:var(--panel)}
+  .code-head{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--bg-2);border-bottom:1px solid var(--line)}
+  .code-head .fname{font-family:var(--mono);font-size:12px;color:var(--txt-2)}
+  .code-head .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--green-dim);margin-right:8px;vertical-align:middle}
+  .copy{font-family:var(--mono);font-size:11px;color:var(--txt-3);background:transparent;border:1px solid var(--line);border-radius:5px;padding:3px 9px;cursor:pointer;transition:.15s}
+  .copy:hover{color:var(--green);border-color:var(--green-dim)}
+  pre{margin:0;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.62}
+  pre code{font-family:var(--mono)}
+  /* hljs palette */
+  .hljs{background:transparent;color:#cfcdc0}
+  .hljs-comment,.hljs-quote{color:#6b6a5e;font-style:italic}
+  .hljs-keyword,.hljs-built_in{color:var(--amber)}
+  .hljs-string,.hljs-meta-string{color:#9fc15a}
+  .hljs-number,.hljs-literal{color:#c8a86a}
+  .hljs-title,.hljs-title.function_,.hljs-section{color:#e9e7dc}
+  .hljs-title.class_,.hljs-type{color:#a8c97a}
+  .hljs-attr,.hljs-attribute,.hljs-property{color:var(--blue)}
+  .hljs-meta{color:var(--green-dim)}
+  .hljs-params{color:#cfcdc0}
+
+  /* callouts */
+  .box{border:1px solid var(--line);border-left-width:3px;border-radius:8px;padding:14px 18px;margin:20px 0;background:var(--bg-2);font-size:15.5px}
+  .box p{margin:0;max-width:none}
+  .box .lab{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:6px}
+  .box.note{border-left-color:var(--green)} .box.note .lab{color:var(--green)}
+  .box.warn{border-left-color:var(--amber)} .box.warn .lab{color:var(--amber)}
+  .box.danger{border-left-color:var(--red)} .box.danger .lab{color:var(--red)}
+  .box.tip{border-left-color:var(--blue)} .box.tip .lab{color:var(--blue)}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin:20px 0;font-size:14.5px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  th{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--green);text-transform:uppercase;border-bottom:1px solid var(--line)}
+  td code{font-family:var(--mono);font-size:12.5px;color:var(--green);white-space:nowrap}
+  tbody tr:hover{background:var(--bg-2)}
+
+  /* flow diagram */
+  .flow{font-family:var(--mono);font-size:12.5px;color:var(--txt-2);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;overflow-x:auto;margin:20px 0;line-height:1.9;white-space:pre}
+  .flow b{color:var(--green);font-weight:500}
+  .flow .dim{color:var(--txt-3)}
+
+  hr{border:none;border-top:1px solid var(--line);margin:40px 0}
+  .end{font-family:var(--mono);font-size:12.5px;color:var(--txt-3);text-align:center;padding-top:20px;border-top:1px solid var(--line)}
+
+  .menu-btn{display:none}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  @media (max-width:880px){
+    .wrap{grid-template-columns:1fr}
+    aside{position:fixed;z-index:40;width:260px;left:0;top:0;transform:translateX(-105%);transition:transform .25s;box-shadow:0 0 40px rgba(0,0,0,.6)}
+    aside.open{transform:none}
+    main{padding:74px 22px 100px}
+    h1{font-size:30px}
+    .menu-btn{display:flex;position:fixed;z-index:50;top:14px;left:14px;align-items:center;gap:8px;
+      font-family:var(--mono);font-size:12px;color:var(--txt);background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+  }
+</style>
+</head>
+<body>
+
+<button class="menu-btn" id="menuBtn">&#9776; Contents</button>
+
+<div class="wrap">
+<aside id="side">
+  <div class="brand"><b>NVIDIA</b> DEEPSTREAM &middot; FIELD NOTES</div>
+  <div class="brand-title">Scalable, resilient<br>multi-stream pipelines</div>
+  <nav id="toc">
+    <a href="#overview"><span class="n">00</span>Overview</a>
+    <a href="#threads"><span class="n">01</span>Threads in DeepStream</a>
+    <a href="#bus"><span class="n">02</span>The bus mental model</a>
+    <a href="#bins"><span class="n">03</span>nvmultiurisrcbin &amp; new nvstreammux</a>
+    <a href="#scale"><span class="n">04</span>Scaling to 50 streams</a>
+    <a href="#rtsp"><span class="n">05</span>RTSP failure &amp; reconnect</a>
+    <a href="#alive"><span class="n">06</span>Keeping it alive</a>
+    <a href="#monitor"><span class="n">07</span>Monitoring &amp; status</a>
+    <a href="#watchdog"><span class="n">08</span>Graceful reconnection</a>
+    <a href="#infer"><span class="n">09</span>Detector, LPR, tracking, ReID</a>
+    <a href="#checklist"><span class="n">10</span>Production checklist</a>
+  </nav>
+</aside>
+
+<main>
+  <header class="hero">
+    <div class="kicker">Engineering Guide</div>
+    <h1>From a 4-stream demo to a<br>50-camera production pipeline</h1>
+    <p class="lede">Everything from our discussion, written up: how the threads really work, the message bus, what <code class="in">nvmultiurisrcbin</code> and the new <code class="in">nvstreammux</code> do for you, and how to grow this into a pipeline that survives flaky RTSP cameras, server hiccups, and runs unattended for weeks — plus how to bolt on detection, license-plate recognition, tracking, and ReID.</p>
+    <div class="meta-row">
+      <span class="tag">GStreamer / PyGObject</span>
+      <span class="tag">new nvstreammux</span>
+      <span class="tag">REST add/remove</span>
+      <span class="tag">RTSP resilience</span>
+      <span class="tag">TAO inference</span>
+    </div>
+  </header>
+
+  <!-- 00 -->
+  <section id="overview">
+    <div class="sec-label">// 00</div>
+    <h2>Overview: what the base pipeline is</h2>
+    <p>The starting pipeline is a long-running REST server built around one composite element. Frames flow left to right; the server lets you add and remove cameras at runtime without restarting anything.</p>
+    <div class="flow"><b>nvmultiurisrcbin</b>  <span class="dim">─▶</span>  <b>nvmultistreamtiler</b>  <span class="dim">─▶</span>  <b>nvvideoconvert</b>  <span class="dim">─▶</span>  <b>nvdsosd</b>  <span class="dim">─▶</span>  <b>fakesink</b>
+<span class="dim">│                                                                              </span>
+<span class="dim">└─ bundles: per-source decode (nvurisrcbin ×N) + new nvstreammux + REST server</span></div>
+    <p>The key idea: <code class="in">nvmultiurisrcbin</code> hides the per-source decoding, the batching, and an HTTP control server inside a single bin that exposes one static source pad. You POST JSON to <code class="in">/api/v1/stream/add</code> and <code class="in">/api/v1/stream/remove</code> to manage cameras live. The rest of this guide is about understanding <em>why</em> that works and how to make it withstand the real world.</p>
+    <div class="box note"><span class="lab">Mental anchor</span><p>Batching exists for <strong>processing throughput</strong> (run inference over N frames in one GPU pass). Tiling or demuxing exists to turn that batch back into <strong>one renderable frame</strong> for output. They solve different problems — and at 50 streams you usually drop the tiler entirely.</p></div>
+  </section>
+
+  <!-- 01 -->
+  <section id="threads">
+    <div class="sec-label">// 01</div>
+    <h2>Threads in DeepStream</h2>
+    <p>GStreamer is not single-threaded, and most confusion comes from assuming it is. Four kinds of threads run concurrently, each owning a different concern.</p>
+    <table>
+      <thead><tr><th>Thread</th><th>Count</th><th>Owns</th></tr></thead>
+      <tbody>
+        <tr><td><code>Main thread</code></td><td>1</td><td>Runs <code>loop.run()</code> (the GLib main loop). Dispatches bus messages — this is where <code>bus_call</code> executes. Holds the kill switch. Does no frame processing.</td></tr>
+        <tr><td><code>Source threads</code></td><td>N sets</td><td>Each <code>nvurisrcbin</code> decodes one stream (demux, NVDEC, internal queues) on its own thread(s). Created/destroyed at runtime on add/remove.</td></tr>
+        <tr><td><code>streammux + downstream</code></td><td>1+</td><td>Collects buffers from every source pad, forms the batch, pushes it through tiler &rarr; convert &rarr; osd &rarr; sink. The actual data plane.</td></tr>
+        <tr><td><code>REST server</code></td><td>1</td><td>HTTP server (port 9000). Handles add/remove and <em>mutates the live pipeline</em> from this thread, concurrently with everything else.</td></tr>
+      </tbody>
+    </table>
+    <h3><span class="glyph">▸</span>Why the boundaries matter</h3>
+    <ul>
+      <li><strong>Errors cross a boundary via the bus.</strong> A source fails on <em>its</em> thread, posts an error onto the bus (a thread-safe queue), and the main thread picks it up later in <code class="in">bus_call</code>. That hand-off is why it's safe to call <code class="in">loop.quit()</code> there — you never touch pipeline internals from the wrong thread.</li>
+      <li><strong>The REST thread mutates while data flows.</strong> This is the thread-safety hot spot, and the reason the new <code class="in">nvstreammux</code> matters — it does the locking for dynamic pad add/release.</li>
+      <li><strong>Where you block determines what stalls.</strong> A <code class="in">sync=1</code> sink blocks the downstream streaming thread, not the main thread. A pad probe runs on the streaming thread carrying the batch — block it and all frames freeze. Heavy work in <code class="in">bus_call</code> stalls bus dispatch and GLib timers.</li>
+      <li><strong>One stuck source doesn't freeze the others.</strong> Sources decode independently and only rendezvous at the mux — which is exactly what makes per-stream remove-and-readd viable.</li>
+    </ul>
+    <div class="box tip"><span class="lab">Rule of thumb</span><p>Data flows <em>sideways</em> through the streaming threads. Notifications flow <em>up</em> to the main thread via the bus. Commands come <em>in from the side</em> on the REST thread. Keep these three jobs on their own threads and never do long work on the main thread or inside a probe.</p></div>
+  </section>
+
+  <!-- 02 -->
+  <section id="bus">
+    <div class="sec-label">// 02</div>
+    <h2>The bus mental model</h2>
+    <p>Elements deep inside the pipeline can't call your Python directly — wrong thread, no reference to your code. So they <strong>post messages onto the bus</strong>, a thread-safe queue you can picture as the pipeline's mailbox. The main loop watches that mailbox and hands each message to one callback on the main thread.</p>
+    <div class="code">
+      <div class="code-head"><span class="fname"><span class="dot"></span>bus_call.py</span><button class="copy">copy</button></div>
+<pre><code class="language-python">def bus_call(bus, message, loop):
+    t = message.type
+    if t == Gst.MessageType.EOS:
+        # Long-running server: a finite source ending must NOT tear
+        # down the pipeline, or you can never add streams afterwards.
+        print("[bus] EOS (a source ended) — server still running.")
+    elif t == Gst.MessageType.WARNING:
+        err, debug = message.parse_warning()
+        print(f"[bus] WARNING: {err}: {debug}")
+    elif t == Gst.MessageType.ERROR:
+        err, debug = message.parse_error()
+        print(f"[bus] ERROR: {err}: {debug}")
+        # loop.quit()   &lt;-- deliberately NOT called
+    return True            # True = stay subscribed for the next message</code></pre>
+    </div>
+    <p>Three things make this click:</p>
+    <ul>
+      <li><strong>It's a dispatcher, not a worker.</strong> The bus delivers <em>every</em> message type — state changes, buffering, latency, QoS. This function inspects only three; everything else falls through and is ignored. That's normal.</li>
+      <li><strong><code class="in">return True</code> means "stay subscribed."</strong> Returning <code class="in">False</code> removes the watch and you stop hearing from the pipeline entirely.</li>
+      <li><strong>The three branches encode the server's personality.</strong> A normal one-shot program quits on EOS and ERROR. This one refuses both, because it must outlive any single source. The <code class="in">loop</code> argument is the kill switch passed in on purpose — and the design choice is to <em>not</em> pull it.</li>
+    </ul>
+    <div class="box warn"><span class="lab">The tradeoff</span><p>Silencing ERROR keeps the server up through transient per-source failures — but a genuinely fatal pipeline error is then only logged, never acted on. You get no automatic exit, so you must rely on the monitoring layer (section 07) to notice and react.</p></div>
+  </section>
+
+  <!-- 03 -->
+  <section id="bins">
+    <div class="sec-label">// 03</div>
+    <h2>nvmultiurisrcbin &amp; the new nvstreammux</h2>
+    <h3><span class="glyph">▸</span>nvmultiurisrcbin</h3>
+    <p>This bin packages three things that you would otherwise wire up by hand: one <code class="in">nvurisrcbin</code> per stream (URI parsing + hardware decode), the new <code class="in">nvstreammux</code> (batching), and an embedded REST control server. It exposes a single static src pad, so you link it directly downstream and never deal with dynamic request-pad linking yourself. That bundling is what makes runtime add/remove a one-line REST call instead of fragile pad surgery.</p>
+    <h3><span class="glyph">▸</span>Why the new nvstreammux</h3>
+    <p>Set with <code class="in">USE_NEW_NVSTREAMMUX=yes</code> <em>before</em> GStreamer loads. The legacy mux wanted a fixed batch size and explicit input dimensions up front and was brittle about sources appearing and disappearing. The new mux is built for a dynamic, unknown number of sources: it batches adaptively, tolerates sources joining and leaving mid-run, and does the locking required for safe dynamic add/remove.</p>
+    <table>
+      <thead><tr><th>Concept</th><th>What it actually is</th></tr></thead>
+      <tbody>
+        <tr><td>A <strong>batch</strong></td><td>An <code>NvBufSurface</code> holding N independent frames side by side in GPU memory, plus <code>NvDsBatchMeta</code>. Travels as one <code>GstBuffer</code>. A scheduling/throughput construct — not a viewable image.</td></tr>
+        <tr><td><strong>Tiling</strong></td><td>Composite the N frames into one surface (the monitor-wall view). One sink, all streams visible.</td></tr>
+        <tr><td><strong>Demuxing</strong></td><td><code>nvstreamdemux</code> splits the batch back into N single-stream branches — one sink/recording per camera.</td></tr>
+      </tbody>
+    </table>
+    <div class="box note"><span class="lab">Add / remove over REST</span><p>You target a single stream by its <code class="in">camera_id</code>. Removing one frees its batch slot and releases its pad without disturbing the others; re-adding builds a fresh <code class="in">nvurisrcbin</code>. Always let the remove complete before re-adding the same id, or you risk an id conflict or a momentary batch-cap rejection.</p></div>
+  </section>
+
+  <!-- 04 -->
+  <section id="scale">
+    <div class="sec-label">// 04</div>
+    <h2>Scaling to 50 streams</h2>
+    <p>The demo is hard-capped at 4 (<code class="in">MAX_BATCH_SIZE = 4</code>, tiler <code class="in">2&times;2</code>). Growing to 50 is mostly a matter of sizing the batch, fixing the output strategy, and respecting hardware limits.</p>
+
+    <h3><span class="glyph">▸</span>1. Raise the batch ceiling</h3>
+    <div class="code">
+      <div class="code-head"><span class="fname"><span class="dot"></span>pipeline.py — source setup</span><button class="copy">copy</button></div>
+<pre><code class="language-python">MAX_BATCH_SIZE = 50
+
+src = make("nvmultiurisrcbin", "multiuri-src")
+src.set_property("port", 9000)
+src.set_property("ip-address", "0.0.0.0")
+src.set_property("max-batch-size", MAX_BATCH_SIZE)
+src.set_property("width", 1280)
+src.set_property("height", 720)
+# RTSP resilience (applied to every source the bin creates):
+src.set_property("rtsp-reconnect-interval", 10)   # seconds; 0 disables
+src.set_property("rtsp-reconnect-attempts", -1)   # -1 = retry forever
+src.set_property("select-rtp-protocol", 4)        # 4 = TCP (lossy nets)
+src.set_property("latency", 200)                  # jitter buffer, ms
+src.set_property("drop-frame-interval", 0)        # 1+ = decode every Nth</code></pre>
+    </div>
+
+    <h3><span class="glyph">▸</span>2. Stop tiling — go headless</h3>
+    <p>A 50-cell mosaic is useless to a human and wastes GPU on compositing. For analytics, drop the tiler and OSD and pull metadata off the batch with a probe, fanning results out to a message broker (Kafka via <code class="in">nvmsgconv</code> + <code class="in">nvmsgbroker</code>). Keep an <em>optional</em> tiled preview of a handful of streams on a separate demuxed branch if operators need eyes on it.</p>
+    <div class="flow"><b>nvmultiurisrcbin</b> <span class="dim">─▶</span> <b>nvinfer</b> (PGIE) <span class="dim">─▶</span> <b>nvtracker</b> <span class="dim">─▶</span> <b>probe</b> <span class="dim">─▶</span> <b>nvmsgconv</b> <span class="dim">─▶</span> <b>nvmsgbroker</b>
+<span class="dim">                                                  └─ extract NvDsBatchMeta, no rendering</span></div>
+
+    <h3><span class="glyph">▸</span>3. Tune the new mux for many sources</h3>
+    <div class="code">
+      <div class="code-head"><span class="fname"><span class="dot"></span>config_mux.txt</span><button class="copy">copy</button></div>
+<pre><code class="language-ini">[property]
+algorithm-type=1
+batch-size=50
+adaptive-batching=1
+# Cap aggregate throughput so a burst of sources can't overrun the GPU:
+max-fps-control=1
+overall-max-fps-n=900      # e.g. 50 streams * ~18 fps target
+overall-max-fps-d=1
+overall-min-fps-n=50
+overall-min-fps-d=1
+max-same-source-frames=1</code></pre>
+    </div>
+    <div class="box warn"><span class="lab">Hardware reality check</span><p>50&times;1080p30 is heavy. The <strong>NVDEC</strong> decoder count is finite per GPU — exceed it and decode stalls. Mitigate by lowering input resolution, using <code class="in">drop-frame-interval</code> to decode fewer frames, running inference every Nth frame (<code class="in">interval</code> in the nvinfer config), watching GPU memory for the batched surface pools (<code class="in">nvbuf-memory-type</code>, pool sizes), and scaling horizontally across multiple GPUs / processes when one card saturates.</p></div>
+  </section>
+
+  <!-- 05 -->
+  <section id="rtsp">
+    <div class="sec-label">// 05</div>
+    <h2>RTSP failure &amp; reconnect</h2>
+    <p>Real cameras drop. Networks blip. Servers restart. The pipeline must treat a dead stream as routine, not exceptional. There are two layers of defense.</p>
+    <h3><span class="glyph">▸</span>Layer 1 — built-in reconnection</h3>
+    <p><code class="in">nvurisrcbin</code> can recover transient RTSP drops by itself. With <code class="in">rtsp-reconnect-interval</code> set, a dropped connection is retried automatically — no manual intervention. Prefer <strong>TCP</strong> (<code class="in">select-rtp-protocol=4</code>) on lossy links to avoid UDP packet loss, and size the <code class="in">latency</code> jitter buffer to your network. For most camera outages this is all you need.</p>
+    <table>
+      <thead><tr><th>Property</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>rtsp-reconnect-interval</code></td><td>Seconds between auto-reconnect attempts (0 = off)</td></tr>
+        <tr><td><code>rtsp-reconnect-attempts</code></td><td>Max attempts; <code>-1</code> = retry forever</td></tr>
+        <tr><td><code>select-rtp-protocol</code></td><td><code>0</code>=UDP, <code>4</code>=TCP — use TCP for reliability</td></tr>
+        <tr><td><code>latency</code></td><td>Jitter buffer in ms; raise on jittery networks</td></tr>
+        <tr><td><code>udp-buffer-size</code></td><td>Larger buffer absorbs bursts on UDP</td></tr>
+      </tbody>
+    </table>
+    <h3><span class="glyph">▸</span>Layer 2 — application watchdog</h3>
+    <p>Built-in reconnection handles connection drops, but not every failure mode: a camera that streams corrupt frames, a source wedged in an error state, a decoder that silently stops producing buffers. For those, you need an external watchdog that detects "no frames for X seconds" and forcibly removes-and-readds the stream over REST. That is section 08.</p>
+    <div class="box note"><span class="lab">File sources</span><p>For file inputs, <code class="in">file-loop=True</code> already prevents the most common "stream ended" case by looping instead of emitting EOS. Manual remove/add is mainly for hard decode errors.</p></div>
+  </section>
+
+  <!-- 06 -->
+  <section id="alive">
+    <div class="sec-label">// 06</div>
+    <h2>Keeping it alive</h2>
+    <p>Persistence is a set of deliberate refusals to die, layered together:</p>
+    <ol>
+      <li><strong>Never quit on EOS.</strong> A finite source ending is normal; log and continue (section 02).</li>
+      <li><strong>Don't auto-quit on per-source ERROR.</strong> Isolate the failure to one stream and let the watchdog recover it, rather than tearing down 49 healthy streams for one bad camera.</li>
+      <li><strong>Isolate sources structurally.</strong> Because each source has its own threads and only meets the others at the mux, one failure stays local. Lean into that.</li>
+      <li><strong>Recover, don't restart.</strong> Use REST remove/add to rebuild one source in place; never set the whole pipeline to <code class="in">NULL</code> for a single-camera problem.</li>
+      <li><strong>Distinguish transient vs fatal.</strong> Transient (drop, blip) &rarr; let built-in reconnect handle it. Persistent (repeated failures) &rarr; watchdog with backoff, and eventually mark the stream dead and alert.</li>
+      <li><strong>Wrap the process.</strong> Run under a supervisor (systemd / Docker <code class="in">--restart unless-stopped</code> / k8s) so even a true crash comes back automatically.</li>
+    </ol>
+    <div class="box danger"><span class="lab">Anti-pattern</span><p>Calling <code class="in">loop.quit()</code> in the ERROR branch on a 50-camera server. One flaky camera should never be able to take down the whole fleet. Recover the single stream instead.</p></div>
+  </section>
+
+  <!-- 07 -->
+  <section id="monitor">
+    <div class="sec-label">// 07</div>
+    <h2>Monitoring &amp; status</h2>
+    <p>You can't recover what you can't see. The cheapest, most reliable health signal is "is each source still producing frames?" — captured with a single buffer probe on the mux's source pad, which fires once per batch and lets you record a last-seen timestamp per source.</p>
+    <div class="code">
+      <div class="code-head"><span class="fname"><span class="dot"></span>monitor.py — per-source liveness probe</span><button class="copy">copy</button></div>
+<pre><code class="language-python">import time, pyds
+from collections import defaultdict
+
+last_seen = {}                 # source_id -> monotonic timestamp
+frame_count = defaultdict(int) # source_id -> frames in window
+
+def mux_src_probe(pad, info, _):
+    gst_buffer = info.get_buffer()
+    if not gst_buffer:
+        return Gst.PadProbeReturn.OK
+    batch = pyds.gst_buffer_get_nvds_batch_meta(hash(gst_buffer))
+    l = batch.frame_meta_list
+    now = time.monotonic()
+    while l is not None:
+        fm = pyds.NvDsFrameMeta.cast(l.data)
+        sid = fm.source_id
+        last_seen[sid] = now
+        frame_count[sid] += 1
+        l = l.next
+    return Gst.PadProbeReturn.OK   # keep this fast — it runs on the streaming thread
+
+# attach once, on the bin's static src pad
+src.get_static_pad("src").add_probe(Gst.PadProbeType.BUFFER, mux_src_probe, None)</code></pre>
+    </div>
+    <p>From <code class="in">last_seen</code> and <code class="in">frame_count</code> you derive everything an operator needs:</p>
+    <ul>
+      <li><strong>Per-stream FPS</strong> — reset <code class="in">frame_count</code> on a GLib interval and divide by the window.</li>
+      <li><strong>Liveness</strong> — <code class="in">now - last_seen[sid]</code> &gt; threshold means the source has stalled even if it never posted an error.</li>
+      <li><strong>GPU / decoder load</strong> — poll NVML (or shell out to <code class="in">nvidia-smi</code>) for utilization, memory, and decoder occupancy.</li>
+      <li><strong>Bus events</strong> — log every WARNING/ERROR with the offending stream id and a reconnect counter.</li>
+      <li><strong>Expose it</strong> — a small <code class="in">/status</code> HTTP endpoint or a Prometheus exporter turns the dict above into dashboards and alerts.</li>
+    </ul>
+    <div class="box tip"><span class="lab">Keep the probe trivial</span><p>The probe runs on the downstream streaming thread. Only read meta and stamp a dict — no I/O, no locks held long, no REST calls. Do the deciding and acting on the main thread or a dedicated watchdog thread.</p></div>
+  </section>
+
+  <!-- 08 -->
+  <section id="watchdog">
+    <div class="sec-label">// 08</div>
+    <h2>Graceful reconnection</h2>
+    <p>The watchdog ties monitoring to action: a periodic check reads the liveness dict, and any source that has gone silent past its grace period is rebuilt in place via REST — remove, wait for teardown, then add — with exponential backoff so a permanently-dead camera doesn't hammer the system.</p>
+    <div class="code">
+      <div class="code-head"><span class="fname"><span class="dot"></span>watchdog.py</span><button class="copy">copy</button></div>
+<pre><code class="language-python">import time, requests
+from gi.repository import GLib
+
+REST = "http://localhost:9000/api/v1/stream"
+STALL_SECS   = 15           # no frames for this long => stalled
+streams      = {}           # camera_id -> {"url":..., "source_id":..., "fails":0}
+recovering   = set()
+
+def post(action, cam_id, url, change):
+    payload = {"key": "sensor", "value": {
+        "camera_id": cam_id, "camera_name": cam_id,
+        "camera_url": url, "change": change}}
+    return requests.post(f"{REST}/{action}", json=payload, timeout=5)
+
+def recover(cam_id):
+    info = streams[cam_id]
+    backoff = min(60, 2 ** info["fails"])      # 1,2,4,... capped at 60s
+    info["fails"] += 1
+    recovering.add(cam_id)
+    try:
+        post("remove", cam_id, info["url"], "camera_remove")
+        time.sleep(backoff)                    # let teardown finish before re-add
+        post("add", cam_id, info["url"], "camera_add")
+        print(f"[watchdog] re-added {cam_id} (attempt {info['fails']}, backoff {backoff}s)")
+    except Exception as e:
+        print(f"[watchdog] recover {cam_id} failed: {e}")
+    finally:
+        recovering.discard(cam_id)
+
+def check_health():
+    now = time.monotonic()
+    for cam_id, info in streams.items():
+        sid = info["source_id"]
+        if cam_id in recovering:
+            continue
+        stalled = (sid not in last_seen) or (now - last_seen[sid] > STALL_SECS)
+        if stalled:
+            if info["fails"] >= 8:             # give up, alert, stop retrying
+                print(f"[watchdog] {cam_id} DEAD after {info['fails']} attempts")
+                continue
+            # run the blocking recover off the main loop
+            GLib.Thread.new(f"recover-{cam_id}", lambda c=cam_id: recover(c))
+        else:
+            info["fails"] = 0                  # healthy again -> reset backoff
+    return True                                # keep the timer alive
+
+# check every 5s on the GLib main loop
+GLib.timeout_add_seconds(5, check_health)</code></pre>
+    </div>
+    <ul>
+      <li><strong>Detect</strong> with the liveness dict from section 07 — catches silent stalls that never post an error.</li>
+      <li><strong>Sequence</strong> the remove before the add, with a wait, so the slot and pad are released before reuse.</li>
+      <li><strong>Back off</strong> exponentially; reset on recovery so a flapping camera self-heals without a storm of REST calls.</li>
+      <li><strong>Give up gracefully</strong> after a cap — mark the stream dead, alert, and stop retrying so a decommissioned camera doesn't churn forever.</li>
+      <li><strong>Don't block the main loop</strong> — run the blocking remove/sleep/add on a worker thread; let built-in RTSP reconnection (section 05) handle the easy cases so the watchdog only fires on genuine stalls.</li>
+    </ul>
+    <div class="box note"><span class="lab">Division of labour</span><p>Built-in <code class="in">rtsp-reconnect-interval</code> handles connection drops cheaply and in-place. The watchdog is the heavier hammer for hard failures the source can't recover from on its own. Layer both; don't make the watchdog do work the source bin already does.</p></div>
+  </section>
+
+  <!-- 09 -->
+  <section id="infer">
+    <div class="sec-label">// 09</div>
+    <h2>Detector, license-plate recognition, tracking &amp; ReID</h2>
+    <p>Inference slots in between the source bin and the output. The canonical license-plate pipeline chains a primary detector, a tracker, and two secondary inference stages, all operating on the same batched buffer.</p>
+    <div class="flow"><b>nvmultiurisrcbin</b> <span class="dim">─▶</span> <b>nvinfer</b> PGIE <span class="dim">─▶</span> <b>nvtracker</b> <span class="dim">─▶</span> <b>nvinfer</b> SGIE-LPD <span class="dim">─▶</span> <b>nvinfer</b> SGIE-LPR <span class="dim">─▶</span> <b>probe / osd / sink</b>
+<span class="dim">                    detect vehicles      track + ReID      detect plate          read characters</span></div>
+
+    <h3><span class="glyph">▸</span>Primary detector (PGIE)</h3>
+    <p>The first <code class="in">nvinfer</code> runs once over the whole batch and attaches object metadata. For traffic, NVIDIA's <strong>TrafficCamNet</strong> (TAO) detects vehicles; swap in any model with its own config. Use <code class="in">interval</code> to run detection every Nth frame at scale, and <code class="in">batch-size</code> matched to the mux.</p>
+    <div class="code">
+      <div class="code-head"><span class="fname"><span class="dot"></span>config_pgie.txt</span><button class="copy">copy</button></div>
+<pre><code class="language-ini">[property]
+gpu-id=0
+net-scale-factor=0.00392156862745098
+tlt-encoded-model=trafficcamnet.etlt
+tlt-model-key=tlt_encode
+labelfile-path=labels_trafficcamnet.txt
+batch-size=50
+network-mode=2            ; 0=FP32 1=INT8 2=FP16
+num-detected-classes=4
+interval=2               ; infer every 3rd frame to save compute
+gie-unique-id=1
+process-mode=1           ; 1 = primary</code></pre>
+    </div>
+
+    <h3><span class="glyph">▸</span>Tracking</h3>
+    <p><code class="in">nvtracker</code> assigns a persistent <code class="in">object_id</code> to each detection across frames, so you read a plate once per vehicle instead of per frame. The low-level library is shared; a YAML selects the algorithm.</p>
+    <div class="code">
+      <div class="code-head"><span class="fname"><span class="dot"></span>tracker setup</span><button class="copy">copy</button></div>
+<pre><code class="language-python">tracker = make("nvtracker", "tracker")
+tracker.set_property("tracker-width", 640)
+tracker.set_property("tracker-height", 384)
+tracker.set_property("ll-lib-file",
+    "/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so")
+# Algorithm chosen by the config:
+#   config_tracker_NvSORT.yml      -> fast, no appearance model
+#   config_tracker_NvDCF_perf.yml  -> correlation filter, balanced
+#   config_tracker_NvDeepSORT.yml  -> appearance ReID, most robust
+tracker.set_property("ll-config-file", "config_tracker_NvDeepSORT.yml")</code></pre>
+    </div>
+
+    <h3><span class="glyph">▸</span>ReID — identity that survives occlusion</h3>
+    <p>Plain motion trackers lose an object when it's occluded or leaves and re-enters the frame, handing it a new id. <strong>ReID</strong> attaches an appearance embedding to each object so the tracker can re-associate the same identity later — and, because the embedding is comparable across cameras, it's the basis for multi-camera tracking. ReID is enabled inside the tracker config (NvDeepSORT or NvDCF-accuracy), pointing at a ReID feature-extraction model.</p>
+    <div class="code">
+      <div class="code-head"><span class="fname"><span class="dot"></span>config_tracker_NvDeepSORT.yml (excerpt)</span><button class="copy">copy</button></div>
+<pre><code class="language-yaml">ReID:
+  reidType: 2                      # 2 = ReID-based association
+  batchSize: 100
+  reidFeatureSize: 256
+  reidHistorySize: 100
+  inferDims: [3, 256, 128]
+  networkMode: 1                   # INT8 for throughput
+  onnxFile: "resnet50_reid.onnx"   # appearance model
+  modelEngineFile: "resnet50_reid.onnx_b100_gpu0_int8.engine"
+  keepAspc: 1
+  outputReidTensor: 1              # emit embeddings for cross-camera matching</code></pre>
+    </div>
+
+    <h3><span class="glyph">▸</span>License-plate detection &amp; recognition (SGIEs)</h3>
+    <p>Two secondary <code class="in">nvinfer</code> stages run only on the crops produced upstream. <strong>LPDNet</strong> finds the plate region inside each tracked vehicle; <strong>LPRNet</strong> reads the characters. Each is wired to operate on the previous stage's output via <code class="in">operate-on-gie-id</code> and <code class="in">operate-on-class-ids</code>, in secondary mode.</p>
+    <div class="code">
+      <div class="code-head"><span class="fname"><span class="dot"></span>config_sgie_lpd.txt &amp; config_sgie_lpr.txt (key fields)</span><button class="copy">copy</button></div>
+<pre><code class="language-ini">; --- SGIE-1: LPDNet (plate detection on vehicle crops) ---
+[property]
+process-mode=2            ; 2 = secondary
+gie-unique-id=2
+operate-on-gie-id=1       ; consume PGIE (TrafficCamNet) output
+operate-on-class-ids=0    ; e.g. the "car" class
+tlt-encoded-model=lpdnet.etlt
+network-type=0            ; detector
+
+; --- SGIE-2: LPRNet (character recognition on plate crops) ---
+[property]
+process-mode=2
+gie-unique-id=3
+operate-on-gie-id=2       ; consume LPDNet output
+tlt-encoded-model=lprnet.etlt
+network-type=1            ; classifier / sequence
+parse-classifier-func-name=NvDsInferParseCustomNVPlate   ; custom parser
+; LPRNet also needs its character dictionary (dict.txt)</code></pre>
+    </div>
+    <p>The recognized plate string lands as classifier metadata on each object; read it in the same probe you use for monitoring (walk <code class="in">obj_meta.classifier_meta_list</code>) and forward it — with the stable tracker <code class="in">object_id</code> and ReID embedding — to your message broker or database.</p>
+    <div class="box tip"><span class="lab">Reference implementation</span><p>NVIDIA ships a working version of exactly this chain (TrafficCamNet &rarr; LPDNet &rarr; LPRNet) in the open-source <code class="in">deepstream_lpr_app</code>, with the matching config files and the LPRNet character dictionary. Start from those configs rather than writing them blank, and pull the models from TAO / NGC.</p></div>
+    <div class="box warn"><span class="lab">Cost at scale</span><p>Every added inference stage multiplies GPU load across all 50 streams. Use <code class="in">interval</code> on the PGIE, let the tracker carry identity between detections (so SGIEs run on far fewer crops), keep ReID at INT8, and measure end-to-end latency with the monitoring probe before adding more stages.</p></div>
+  </section>
+
+  <!-- 10 -->
+  <section id="checklist">
+    <div class="sec-label">// 10</div>
+    <h2>Production checklist</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Do this</th></tr></thead>
+      <tbody>
+        <tr><td>Batching</td><td><code>max-batch-size</code> = stream count; new mux with adaptive batching; FPS caps in the mux config.</td></tr>
+        <tr><td>Output</td><td>Headless + probe + message broker at scale; tile only a small operator subset on a demuxed branch.</td></tr>
+        <tr><td>RTSP</td><td>TCP transport, <code>rtsp-reconnect-interval</code> on, sized <code>latency</code> buffer.</td></tr>
+        <tr><td>Liveness</td><td>Per-source last-seen probe; FPS window; NVML for GPU/decoder load.</td></tr>
+        <tr><td>Recovery</td><td>Watchdog with sequenced remove/add, exponential backoff, dead-stream cap + alert.</td></tr>
+        <tr><td>Bus policy</td><td>Never quit on EOS; isolate per-source ERROR; act via monitoring, not <code>loop.quit()</code>.</td></tr>
+        <tr><td>Hardware</td><td>Respect NVDEC limits; watch GPU memory pools; scale across GPUs/processes when saturated.</td></tr>
+        <tr><td>Inference</td><td>PGIE <code>interval</code>, tracker-carried identity, INT8 ReID; benchmark latency before adding stages.</td></tr>
+        <tr><td>Process</td><td>Run under systemd / Docker restart policy / k8s so a true crash self-recovers.</td></tr>
+        <tr><td>Observability</td><td><code>/status</code> endpoint or Prometheus; structured logs keyed by <code>camera_id</code>.</td></tr>
+      </tbody>
+    </table>
+    <div class="box note"><span class="lab">The one-line philosophy</span><p>A reliable DeepStream service is one that treats every individual stream as <em>expendable and replaceable</em> while treating the <em>pipeline</em> as immortal. Sources come and go; the batch adapts; the server never dies.</p></div>
+  </section>
+
+  <p class="end">// end of guide &middot; adapt configs to your DeepStream version &middot; verify property names with <code style="color:var(--green)">gst-inspect-1.0</code></p>
+</main>
+</div>
+
+<script>
+  // syntax highlighting
+  if (window.hljs) { document.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b)); }
+
+  // copy buttons
+  document.querySelectorAll('.copy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.closest('.code').querySelector('code').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        const t = btn.textContent; btn.textContent = 'copied'; btn.style.color = 'var(--green)';
+        setTimeout(() => { btn.textContent = t; btn.style.color = ''; }, 1200);
+      });
+    });
+  });
+
+  // scrollspy
+  const links = [...document.querySelectorAll('#toc a')];
+  const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        map.get(e.target.id)?.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+  document.querySelectorAll('section').forEach(s => obs.observe(s));
+
+  // staggered reveal
+  document.querySelectorAll('section').forEach((s, i) => { s.style.animationDelay = (0.04 * i) + 's'; });
+
+  // mobile nav
+  const side = document.getElementById('side'), mb = document.getElementById('menuBtn');
+  mb?.addEventListener('click', () => side.classList.toggle('open'));
+  document.querySelectorAll('#toc a').forEach(a => a.addEventListener('click', () => side.classList.remove('open')));
+</script>
+</body>
+</html>
