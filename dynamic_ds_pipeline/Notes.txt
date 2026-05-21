@@ -1,0 +1,7 @@
+
+To test dynamic pipeline:
+
+curl -s -XPOST 'http://localhost:9000/api/v1/stream/add' -d '{"key":"sensor","value":{"camera_id":"cam1","camera_url":"file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4","change":"camera_add"}}'
+sleep 5
+curl -s -XPOST 'http://localhost:9000/api/v1/stream/remove' -d '{"key":"sensor","value":{"camera_id":"cam1","camera_url":"file:///opt/nvidia/deepstream/deepstream/samples/streams/sample_1080p_h264.mp4","change":"camera_remove"}}'
+
