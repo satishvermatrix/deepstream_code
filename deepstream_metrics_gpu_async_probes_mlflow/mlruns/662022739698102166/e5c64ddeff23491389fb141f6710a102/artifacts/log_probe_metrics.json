@@ -1,0 +1,28 @@
+{
+  "fps_e2e": 535.915857205072,
+  "frames_src": 1443,
+  "frames_mux": 1443,
+  "frames_pgie": 1443,
+  "frames_osd": 1443,
+  "frames_enc": 1443,
+  "dropped_frames": 0,
+  "objects_total": 29705,
+  "by_class": {
+    "person": 7565,
+    "car": 21472,
+    "bicycle": 665,
+    "road_sign": 3
+  },
+  "latency_e2e_ms_avg": 1.4288718620511962,
+  "probe_log_us_avg": 25.059688184656395,
+  "gpu_util_avg": 14.833333333333334,
+  "mem_used_mb_max": 0.0,
+  "mem_total_mb": 0.0,
+  "nvdec_util_avg": 3.75,
+  "nvenc_util_avg": 9.75,
+  "power_w_avg": 17.36,
+  "temp_c_max": 48.0,
+  "gpu_samples": 12.0,
+  "log_dropped": 0,
+  "log_mode": "probe"
+}

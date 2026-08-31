@@ -1,0 +1,14 @@
+artifact_uri: file:///workspace/mlruns/670347823026138458/5c1dc8503aba4573af68d3d860d8db74/artifacts
+end_time: 1787821887355
+entry_point_name: ''
+experiment_id: '670347823026138458'
+lifecycle_stage: active
+run_id: 5c1dc8503aba4573af68d3d860d8db74
+run_name: tracker_n2
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1787821886407
+status: 3
+tags: []
+user_id: root

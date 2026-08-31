@@ -1,0 +1,9 @@
+artifact_location: file:///workspace/mlruns/662022739698102166
+creation_time: 1787132836122
+effective_trace_archival_retention: null
+experiment_id: '662022739698102166'
+last_update_time: 1787132836122
+lifecycle_stage: active
+name: detector
+trace_location: null
+workspace: default

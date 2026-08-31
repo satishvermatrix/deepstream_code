@@ -1,0 +1,14 @@
+artifact_uri: file:///workspace/mlruns/766458723703160894/4eb4d740a00d4af3b8b31086f07209fa/artifacts
+end_time: 1787798740413
+entry_point_name: ''
+experiment_id: '766458723703160894'
+lifecycle_stage: active
+run_id: 4eb4d740a00d4af3b8b31086f07209fa
+run_name: yolo26_latency
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1787798725973
+status: 3
+tags: []
+user_id: root

@@ -1,0 +1,32 @@
+{
+  "fps_e2e": 105.99204948837944,
+  "frames_src": 1443,
+  "frames_mux": 1443,
+  "frames_pgie": 1443,
+  "frames_trk": 1443,
+  "frames_osd": 1443,
+  "frames_enc": 1443,
+  "dropped_frames": 0,
+  "objects_total": 11051,
+  "by_class": {
+    "backpack": 83,
+    "bus": 100,
+    "car": 6298,
+    "person": 4420,
+    "bicycle": 85,
+    "motorcycle": 7,
+    "truck": 58
+  },
+  "latency_e2e_ms_avg": 9.71417755899565,
+  "probe_log_us_avg": 13.259457319727064,
+  "gpu_util_avg": 24.20408163265306,
+  "mem_used_mb_max": 0.0,
+  "mem_total_mb": 0.0,
+  "nvdec_util_avg": 1.2244897959183674,
+  "nvenc_util_avg": 2.938775510204082,
+  "power_w_avg": 20.04877551020408,
+  "temp_c_max": 50.0,
+  "gpu_samples": 49.0,
+  "log_dropped": 0,
+  "log_mode": "async"
+}

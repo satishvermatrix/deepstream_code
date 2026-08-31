@@ -1,0 +1,14 @@
+artifact_uri: file:///workspace/mlruns/766458723703160894/803f643a606c459dbf14c3336da96561/artifacts
+end_time: 1787799951389
+entry_point_name: ''
+experiment_id: '766458723703160894'
+lifecycle_stage: active
+run_id: 803f643a606c459dbf14c3336da96561
+run_name: yolo26m_nvdcf
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1787799917630
+status: 3
+tags: []
+user_id: root
